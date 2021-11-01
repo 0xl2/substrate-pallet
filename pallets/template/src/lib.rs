@@ -42,8 +42,8 @@ pub mod pallet {
 
 	#[pallet::error]
 	pub enum Error<T> {
-		/// The proof has already been claimed.
-		NovelAlreadyClaimed,
+		/// The novel has already been created.
+		NovelAlreadyCreated,
 		/// The novel does not exist, so it cannot be revoked.
 		NoSuchNovel,
 		/// The novel is claimed by another account, so caller can't revoke it.
@@ -55,7 +55,7 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 	  
 	#[pallet::storage]
-	pub(super) type Proofs<T: Config> = StorageMap<_, Blake2_128Concat, Vec<u8>, (T::AccountId, T::BlockNumber), ValueQuery>;
+	pub(super) type Novels<T: Config> = StorageMap<_, Blake2_128Concat, Vec<u8>, (T::AccountId, T::BlockNumber), ValueQuery>;
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {}
@@ -68,24 +68,24 @@ pub mod pallet {
 		#[pallet::weight(1_000)]
 		pub fn create_novel(
 			origin: OriginFor<T>,
-			proof: Vec<u8>,
+			title: Vec<u8>,
 		) -> DispatchResult {
 			// Check that the extrinsic was signed and get the signer.
 			// This function will return an error if the extrinsic is not signed.
 			// https://docs.substrate.io/v3/runtime/origins
 			let sender = ensure_signed(origin)?;
 			
-			// Verify that the specified proof has not already been claimed.
-			ensure!(!Proofs::<T>::contains_key(&proof), Error::<T>::NovelAlreadyClaimed);
+			// Verify that the specified novel has not already been created.
+			ensure!(!Novels::<T>::contains_key(&title), Error::<T>::NovelAlreadyCreated);
 			
 			// Get the block number from the FRAME System pallet.
 			let current_block = <frame_system::Pallet<T>>::block_number();
 			
-			// Store the proof with the sender and block number.
-			Proofs::<T>::insert(&proof, (&sender, current_block));
+			// Store the novel with the sender and block number.
+			Novels::<T>::insert(&title, (&sender, current_block));
 			
 			// Emit an event that the claim was created.
-			Self::deposit_event(Event::NovelCreated(sender, proof));
+			Self::deposit_event(Event::NovelCreated(sender, title));
 			
 			Ok(())
 		}
@@ -93,15 +93,15 @@ pub mod pallet {
 		#[pallet::weight(20_000)]
 		pub fn read_novel(
 			origin: OriginFor<T>,
-			proof: Vec<u8>,
+			title: Vec<u8>,
         ) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
 
-			// Verify that the specified proof has been claimed.
-			ensure!(Proofs::<T>::contains_key(&proof), Error::<T>::NoSuchNovel);
+			// Verify that the specified novel has been claimed.
+			ensure!(Novels::<T>::contains_key(&title), Error::<T>::NoSuchNovel);
 
 			// Get owner of the claim.
-			let (owner, _) = Proofs::<T>::get(&proof);
+			let (owner, _) = Novels::<T>::get(&title);
 
 			// Verify that sender of the current call is the claim owner.
 			ensure!(sender == owner, Error::<T>::NotNovelOwner);
@@ -116,52 +116,52 @@ pub mod pallet {
 		#[pallet::weight(30_000)]
 		pub fn update_novel(
 			origin: OriginFor<T>,
-			proof: Vec<u8>,
+			title: Vec<u8>,
         ) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
 
-			// Verify that the specified proof has been claimed.
-			ensure!(Proofs::<T>::contains_key(&proof), Error::<T>::NoSuchNovel);
+			// Verify that the specified novel has been created.
+			ensure!(Novels::<T>::contains_key(&title), Error::<T>::NoSuchNovel);
 
 			// Get owner of the claim.
-			let (owner, _) = Proofs::<T>::get(&proof);
+			let (owner, _) = Novels::<T>::get(&title);
 			
 			// Verify that sender of the current call is the claim owner.
 			ensure!(sender == owner, Error::<T>::NotNovelOwner);
 
-			Proofs::<T>::remove(&proof);
+			Novels::<T>::remove(&title);
 			let current_block = <frame_system::Pallet<T>>::block_number();
-			Proofs::<T>::insert(&proof, (&sender, current_block));
+			Novels::<T>::insert(&title, (&sender, current_block));
 
 			// Emit an event that the claim was erased.
-			Self::deposit_event(Event::NovelUpdated(sender, proof));
+			Self::deposit_event(Event::NovelUpdated(sender, title));
 			Ok(())
         }
       
 		#[pallet::weight(40_000)]
 		pub fn remove_novel(
 			origin: OriginFor<T>,
-			proof: Vec<u8>,
+			title: Vec<u8>,
         ) -> DispatchResult {
 			// Check that the extrinsic was signed and get the signer.
 			// This function will return an error if the extrinsic is not signed.
 			// https://docs.substrate.io/v3/runtime/origins
 			let sender = ensure_signed(origin)?;
 			
-			// Verify that the specified proof has been claimed.
-			ensure!(Proofs::<T>::contains_key(&proof), Error::<T>::NoSuchNovel);
+			// Verify that the specified novel has been created.
+			ensure!(Novels::<T>::contains_key(&title), Error::<T>::NoSuchNovel);
 			
 			// Get owner of the claim.
-			let (owner, _) = Proofs::<T>::get(&proof);
+			let (owner, _) = Novels::<T>::get(&title);
 			
 			// Verify that sender of the current call is the claim owner.
 			ensure!(sender == owner, Error::<T>::NotNovelOwner);
 			
 			// Remove claim from storage.
-			Proofs::<T>::remove(&proof);
+			Novels::<T>::remove(&title);
 			
 			// Emit an event that the claim was erased.
-			Self::deposit_event(Event::NovelRemoved(sender, proof));
+			Self::deposit_event(Event::NovelRemoved(sender, title));
 			Ok(())
         }
   	}
